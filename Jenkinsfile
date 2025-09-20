@@ -3,7 +3,8 @@ pipeline {
 
     environment {
         VENV_DIR = "${WORKSPACE}/venv"
-        SONARQUBE = 'SonarQubeServer'  // Your Jenkins-configured SonarQube instance
+        SONARQUBE = 'SonarQubeServer'         // Jenkins-configured SonarQube instance
+        scannerHome = tool 'SonarQubeScanner' // MUST be defined in Jenkins Global Tool Config
     }
 
     stages {
@@ -17,15 +18,13 @@ pipeline {
 
         stage('Run Tests') {
             steps {
-                sh './venv/bin/coverage run -m pytest'
-                sh './venv/bin/coverage xml'  // generate XML for SonarQube
+                sh 'mkdir -p reports'
+                sh './venv/bin/pytest --junitxml=reports/test-results.xml'
+                sh './venv/bin/coverage xml'
             }
         }
 
         stage('SonarQube Analysis') {
-            environment {
-                scannerHome = tool 'SonarQubeScanner'  // <- Name must match Jenkins tool config
-            }
             steps {
                 withSonarQubeEnv("${SONARQUBE}") {
                     sh "${scannerHome}/bin/sonar-scanner"
@@ -44,7 +43,7 @@ pipeline {
 
     post {
         always {
-            junit '**/reports/*.xml'  // optional: if you generate junit XML files
+            junit 'reports/test-results.xml'
 
             publishHTML([
                 allowMissing: true,
