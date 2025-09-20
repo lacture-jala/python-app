@@ -11,7 +11,7 @@ coverage run -m pytest
 coverage xml
 
 ```
-skip folder `venv`
+skip multiple folder folders `venv`
 ```bash
- tree -I "venv, __pycache__, .pytest_cache"
+tree -I "venv|__pycache__|.pytest_cache"
  ```
