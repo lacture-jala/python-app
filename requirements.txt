@@ -1,1 +1,4 @@
-flask
+Flask==2.3.2
+coverage==7.10.6
+pytest==8.4.2
+# other dependencies
