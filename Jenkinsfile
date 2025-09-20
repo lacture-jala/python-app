@@ -3,7 +3,7 @@ pipeline {
 
     environment {
         VENV_DIR = "${WORKSPACE}/venv"
-        SONARQUBE = 'SonarQubeServer'  // Jenkins SonarQube server name from Jenkins config
+        SONARQUBE = 'SonarQubeServer'  // Your Jenkins-configured SonarQube instance
     }
 
     stages {
@@ -23,9 +23,12 @@ pipeline {
         }
 
         stage('SonarQube Analysis') {
+            environment {
+                scannerHome = tool 'SonarQubeScanner'  // <- Name must match Jenkins tool config
+            }
             steps {
-                withSonarQubeEnv('SonarQubeServer') {
-                    sh './venv/bin/sonar-scanner'
+                withSonarQubeEnv("${SONARQUBE}") {
+                    sh "${scannerHome}/bin/sonar-scanner"
                 }
             }
         }
@@ -41,7 +44,8 @@ pipeline {
 
     post {
         always {
-            junit '**/reports/*.xml'  // if you generate junit reports
+            junit '**/reports/*.xml'  // optional: if you generate junit XML files
+
             publishHTML([
                 allowMissing: true,
                 alwaysLinkToLastBuild: true,
