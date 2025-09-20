@@ -1,4 +1,4 @@
-Flask
+Flask==2.3.2
+Werkzeug<3
 coverage
 pytest
-# other dependencies
