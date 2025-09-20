@@ -39,6 +39,22 @@ pipeline {
                 }
             }
         }
+
+        stage('Approval') {
+            steps {
+                script {
+                    input message: 'Quality gate passed. Approve to continue?', ok: 'Proceed'
+                }
+            }
+        }
+
+        // Next stages (e.g., Deploy) run only after approval
+        stage('Deploy') {
+            steps {
+                echo 'Deploying the app...'
+                // your deployment commands
+            }
+        }
     }
 
     post {
