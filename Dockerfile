@@ -1,5 +1,5 @@
 # Use a specific, stable Python base image with a known tag (avoid 'latest')
-FROM python:3.14.0rc3-alpine3.22
+FROM python:3.14.0rc3-bookworm
 
 # Set working directory
 WORKDIR /app  
