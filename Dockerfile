@@ -1,5 +1,5 @@
 # Use a specific, stable Python base image with a known tag (avoid 'latest')
-FROM python:3.11-slim-bullseye
+FROM python:3.14.0rc3-alpine3.22
 
 # Set working directory
 WORKDIR /app  
