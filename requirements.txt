@@ -1,4 +1,5 @@
 Flask==2.3.2
-Werkzeug<3
+# Werkzeug<3
+Werkzeug>=3.0.3
 coverage
 pytest
