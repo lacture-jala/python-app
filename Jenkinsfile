@@ -68,48 +68,39 @@ pipeline {
         }
 
         // 2. Build Docker image (tagged with git short SHA)
-        stage('Docker Build') {
+                stage('Docker Build') {
             steps {
                 script {
-                    env.IMAGE_TAG = "${IMAGE_NAME}:${env.BUILD_NUMBER}"
-
+                    env.IMAGE_TAG = "${IMAGE_NAME}:${BUILD_NUMBER}"
                     echo "Building Docker image: ${env.IMAGE_TAG}"
                     sh "docker build -t ${env.IMAGE_TAG} ."
                 }
             }
         }
 
-        // stage('Docker Build') {
-        //     steps {
-        //         script {
-        //             def shortCommit = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
-        //             env.SHORT_COMMIT = shortCommit
-        //             env.IMAGE_TAG = "${IMAGE_NAME}:${shortCommit}"
-
-        //             echo "Building Docker image: ${env.IMAGE_TAG}"
-        //             sh "docker build -t ${env.IMAGE_TAG} ."
-        //         }
-        //     }
-        // }
-
-        // 3. Trivy Docker Image Scan (scan built image for vulnerabilities)
         stage('Trivy Docker Image Scan') {
             steps {
                 script {
-                    sh '''
-                        mkdir -p trivy-reports
+                    sh 'mkdir -p trivy-reports'
 
-                        docker run --rm \
-                            -v $(pwd):/workspace \
-                            -v /var/run/docker.sock:/var/run/docker.sock \
-                            -v trivy-cache:/root/.cache/ \
-                            aquasec/trivy:latest \
-                            image ${IMAGE_TAG} \
-                            --exit-code 1 \
-                            --severity HIGH,CRITICAL \
-                            --format table \
-                            --output /workspace/trivy-reports/image-scan.txt
-                    '''
+                    def trivyStatus = sh(
+                        script: """
+                            docker run --rm \
+                                -v ${env.WORKSPACE}:/workspace \
+                                -v /var/run/docker.sock:/var/run/docker.sock \
+                                -v trivy-cache:/root/.cache/ \
+                                aquasec/trivy:latest image ${env.IMAGE_TAG} \
+                                --exit-code 1 \
+                                --severity HIGH,CRITICAL \
+                                --format table \
+                                --output /workspace/trivy-reports/image-scan.txt
+                        """,
+                        returnStatus: true
+                    )
+
+                    if (trivyStatus != 0) {
+                        error "Trivy found HIGH or CRITICAL vulnerabilities in the Docker image."
+                    }
                 }
             }
             post {
@@ -119,28 +110,16 @@ pipeline {
             }
         }
 
-
-        // 4. Approval before pushing
         stage('Approval Before Push') {
-            steps {
-                script {
-                    input message: "Vulnerability scans passed. Approve to push Docker image ${env.IMAGE_TAG}?", ok: 'Push'
+            when {
+                expression {
+                    return true // Always run unless explicitly failed
                 }
             }
-        }
-
-        // 5. Push Docker image after approval
-        stage('Docker Push') {
             steps {
-                script {
-                    withCredentials([usernamePassword(credentialsId: 'docker-pat', usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
-                        sh """
-                            echo "$DOCKER_PASS" | docker login -u "$DOCKER_USER" --password-stdin
-                            docker push ${env.IMAGE_TAG}
-                            docker logout
-                        """
-                    }
-                }
+                input message: "Trivy scan passed. Do you want to proceed with Docker push?"
+                echo "Approved by user to push the Docker image"
+                // Add docker push or other logic here
             }
         }
 
