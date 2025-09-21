@@ -100,6 +100,7 @@ pipeline {
                         mkdir -p trivy-reports
 
                         docker run --rm \
+                            -v $(pwd):/workspace \
                             -v /var/run/docker.sock:/var/run/docker.sock \
                             -v trivy-cache:/root/.cache/ \
                             aquasec/trivy:latest \
@@ -107,7 +108,7 @@ pipeline {
                             --exit-code 1 \
                             --severity HIGH,CRITICAL \
                             --format table \
-                            --output trivy-reports/image-scan.txt
+                            --output /workspace/trivy-reports/image-scan.txt
                     '''
                 }
             }
@@ -117,6 +118,7 @@ pipeline {
                 }
             }
         }
+
 
         // 4. Approval before pushing
         stage('Approval Before Push') {
