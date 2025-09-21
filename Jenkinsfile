@@ -41,7 +41,6 @@ pipeline {
             }
         }
 
-        // 1. Trivy Filesystem Scan (source & dependencies)
         stage('Trivy Filesystem Scan') {
             steps {
                 script {
@@ -67,11 +66,11 @@ pipeline {
             }
         }
 
-        // 2. Build Docker image (tagged with git short SHA)
-                stage('Docker Build') {
+        stage('Docker Build') {
             steps {
                 script {
-                    env.IMAGE_TAG = "${IMAGE_NAME}:${BUILD_NUMBER}"
+                    def GIT_COMMIT = sh(script: 'git rev-parse --short HEAD', returnStdout: true).trim()
+                    env.IMAGE_TAG = "${IMAGE_NAME}:${BUILD_NUMBER}-${GIT_COMMIT}"
                     echo "Building Docker image: ${env.IMAGE_TAG}"
                     sh "docker build -t ${env.IMAGE_TAG} ."
                 }
@@ -94,36 +93,50 @@ pipeline {
                                 --severity HIGH,CRITICAL \
                                 --format table \
                                 --output /workspace/trivy-reports/image-scan.txt
+
+                            docker run --rm \
+                                -v ${env.WORKSPACE}:/workspace \
+                                -v /var/run/docker.sock:/var/run/docker.sock \
+                                -v trivy-cache:/root/.cache/ \
+                                aquasec/trivy:latest image ${env.IMAGE_TAG} \
+                                --exit-code 0 \
+                                --severity HIGH,CRITICAL \
+                                --format json \
+                                --output /workspace/trivy-reports/image-scan.json
                         """,
                         returnStatus: true
                     )
 
                     if (trivyStatus != 0) {
-                        error "Trivy found HIGH or CRITICAL vulnerabilities in the Docker image."
+                        def userInput = input(
+                            message: "Trivy found HIGH or CRITICAL vulnerabilities in the Docker image. Proceed anyway?",
+                            parameters: [
+                                choice(name: 'Continue?', choices: ['No', 'Yes'], description: 'Select whether to proceed')
+                            ]
+                        )
+                        if (userInput == 'No') {
+                            error "Aborting pipeline due to Trivy scan failures."
+                        } else {
+                            echo "User approved to proceed despite Trivy vulnerabilities."
+                        }
                     }
                 }
             }
             post {
                 always {
-                    archiveArtifacts artifacts: 'trivy-reports/image-scan.txt', fingerprint: true
+                    archiveArtifacts artifacts: 'trivy-reports/image-scan.*', fingerprint: true
                 }
             }
         }
 
         stage('Approval Before Push') {
-            when {
-                expression {
-                    return true // Always run unless explicitly failed
-                }
-            }
             steps {
-                input message: "Trivy scan passed. Do you want to proceed with Docker push?"
-                echo "Approved by user to push the Docker image"
-                // Add docker push or other logic here
+                input message: "Trivy scan passed (or was approved). Proceed with Docker image push?"
+                echo "User approved Docker push"
+                // Add your docker push or tag logic here
             }
         }
 
-        // Optional deploy stage
         stage('Deploy') {
             steps {
                 echo "Deploying image ${env.IMAGE_TAG}..."
